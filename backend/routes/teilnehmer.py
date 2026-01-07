@@ -10,17 +10,58 @@ def init_routes(db):
     
     @teilnehmer_bp.route('', methods=['GET'])
     def get_participants():
-        """Get all participants"""
+        """Get all participants with resolved contact and appointment data"""
         try:
             with db.session as session:
                 participants = session.execute(select(tables.Teilnehmer)).scalars().all()
                 result = []
                 for participant in participants:
-                    result.append({
+                    participant_data = {
                         "id": participant.id,
                         "kontakt_id": participant.Kontakt,
                         "termin_id": participant.Termin
-                    })
+                    }
+                    
+                    # Resolve Kontakt foreign key with nested Person/Unternehmen
+                    kontakt = session.execute(
+                        select(tables.Kontakt).where(tables.Kontakt.id == participant.Kontakt)
+                    ).scalar_one_or_none()
+                    
+                    if kontakt:
+                        participant_data["kontakt"] = {
+                            "id": kontakt.id,
+                            "email": kontakt.EMail,
+                            "telefonnummer": kontakt.Telefonnummer,
+                            "rolle": kontakt.Rolle,
+                            "referenz": kontakt.Referenz,
+                            "ref_typ": kontakt.RefTyp
+                        }
+                    
+                    # Resolve Termine foreign key with nested Terminart
+                    termin = session.execute(
+                        select(tables.Termine).where(tables.Termine.id == participant.Termin)
+                    ).scalar_one_or_none()
+                    
+                    if termin:
+                        art = session.execute(
+                            select(tables.Terminart).where(tables.Terminart.id == termin.Art)
+                        ).scalar_one_or_none()
+                        
+                        participant_data["termin"] = {
+                            "id": termin.id,
+                            "ort": termin.Ort,
+                            "art_id": termin.Art,
+                            "start": termin.Start.isoformat() if termin.Start else None,
+                            "ende": termin.Ende.isoformat() if termin.Ende else None
+                        }
+                        
+                        if art:
+                            participant_data["termin"]["art"] = {
+                                "id": art.id,
+                                "name": art.Name
+                            }
+                    
+                    result.append(participant_data)
                 return jsonify({"participants": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -28,7 +69,7 @@ def init_routes(db):
 
     @teilnehmer_bp.route('/<int:participant_id>', methods=['GET'])
     def get_participant(participant_id):
-        """Get a single participant by ID"""
+        """Get a single participant by ID with resolved contact and appointment data"""
         try:
             with db.session as session:
                 participant = session.execute(
@@ -36,11 +77,52 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if participant:
-                    return jsonify({
+                    participant_data = {
                         "id": participant.id,
                         "kontakt_id": participant.Kontakt,
                         "termin_id": participant.Termin
-                    }), 200
+                    }
+                    
+                    # Resolve Kontakt foreign key with nested Person/Unternehmen
+                    kontakt = session.execute(
+                        select(tables.Kontakt).where(tables.Kontakt.id == participant.Kontakt)
+                    ).scalar_one_or_none()
+                    
+                    if kontakt:
+                        participant_data["kontakt"] = {
+                            "id": kontakt.id,
+                            "email": kontakt.EMail,
+                            "telefonnummer": kontakt.Telefonnummer,
+                            "rolle": kontakt.Rolle,
+                            "referenz": kontakt.Referenz,
+                            "ref_typ": kontakt.RefTyp
+                        }
+                    
+                    # Resolve Termine foreign key with nested Terminart
+                    termin = session.execute(
+                        select(tables.Termine).where(tables.Termine.id == participant.Termin)
+                    ).scalar_one_or_none()
+                    
+                    if termin:
+                        art = session.execute(
+                            select(tables.Terminart).where(tables.Terminart.id == termin.Art)
+                        ).scalar_one_or_none()
+                        
+                        participant_data["termin"] = {
+                            "id": termin.id,
+                            "ort": termin.Ort,
+                            "art_id": termin.Art,
+                            "start": termin.Start.isoformat() if termin.Start else None,
+                            "ende": termin.Ende.isoformat() if termin.Ende else None
+                        }
+                        
+                        if art:
+                            participant_data["termin"]["art"] = {
+                                "id": art.id,
+                                "name": art.Name
+                            }
+                    
+                    return jsonify(participant_data), 200
                 else:
                     return jsonify({"error": "Participant not found"}), 404
         except Exception as e:

@@ -10,18 +10,34 @@ def init_routes(db):
     
     @unternehmen_bp.route('', methods=['GET'])
     def get_companies():
-        """Get all companies"""
+        """Get all companies with resolved address data"""
         try:
             with db.session as session:
                 companies = session.execute(select(tables.Unternehmen)).scalars().all()
                 result = []
                 for company in companies:
-                    result.append({
+                    # Resolve Adresse foreign key
+                    adresse = session.execute(
+                        select(tables.Adresse).where(tables.Adresse.id == company.Adresse)
+                    ).scalar_one_or_none()
+                    
+                    company_data = {
                         "id": company.id,
                         "name": company.Name,
                         "adresse_id": company.Adresse,
                         "umsatz": company.Umsatz
-                    })
+                    }
+                    
+                    if adresse:
+                        company_data["adresse"] = {
+                            "id": adresse.id,
+                            "plz": adresse.Plz,
+                            "ortsname": adresse.ortsname,
+                            "strasse": adresse.Strasse,
+                            "hausnr": adresse.Hausnr
+                        }
+                    
+                    result.append(company_data)
                 return jsonify({"companies": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -29,7 +45,7 @@ def init_routes(db):
 
     @unternehmen_bp.route('/<int:company_id>', methods=['GET'])
     def get_company(company_id):
-        """Get a single company by ID"""
+        """Get a single company by ID with resolved address data"""
         try:
             with db.session as session:
                 company = session.execute(
@@ -37,12 +53,28 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if company:
-                    return jsonify({
+                    # Resolve Adresse foreign key
+                    adresse = session.execute(
+                        select(tables.Adresse).where(tables.Adresse.id == company.Adresse)
+                    ).scalar_one_or_none()
+                    
+                    company_data = {
                         "id": company.id,
                         "name": company.Name,
                         "adresse_id": company.Adresse,
                         "umsatz": company.Umsatz
-                    }), 200
+                    }
+                    
+                    if adresse:
+                        company_data["adresse"] = {
+                            "id": adresse.id,
+                            "plz": adresse.Plz,
+                            "ortsname": adresse.ortsname,
+                            "strasse": adresse.Strasse,
+                            "hausnr": adresse.Hausnr
+                        }
+                    
+                    return jsonify(company_data), 200
                 else:
                     return jsonify({"error": "Company not found"}), 404
         except Exception as e:

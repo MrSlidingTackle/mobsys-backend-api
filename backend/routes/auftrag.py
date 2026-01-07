@@ -10,18 +10,46 @@ def init_routes(db):
     
     @auftrag_bp.route('', methods=['GET'])
     def get_orders():
-        """Get all orders"""
+        """Get all orders with resolved contact and importance data"""
         try:
             with db.session as session:
                 orders = session.execute(select(tables.Auftrag)).scalars().all()
                 result = []
                 for order in orders:
-                    result.append({
+                    order_data = {
                         "id": order.id,
                         "bezeichnung": order.Bezeichnung,
                         "wichtigkeit_id": order.wichtigkeit,
                         "kontakt_id": order.Kontakt
-                    })
+                    }
+                    
+                    # Resolve Wichtigkeit foreign key
+                    wichtigkeit = session.execute(
+                        select(tables.Wichtigkeit).where(tables.Wichtigkeit.id == order.wichtigkeit)
+                    ).scalar_one_or_none()
+                    
+                    if wichtigkeit:
+                        order_data["wichtigkeit"] = {
+                            "id": wichtigkeit.id,
+                            "level": wichtigkeit.level
+                        }
+                    
+                    # Resolve Kontakt foreign key
+                    kontakt = session.execute(
+                        select(tables.Kontakt).where(tables.Kontakt.id == order.Kontakt)
+                    ).scalar_one_or_none()
+                    
+                    if kontakt:
+                        order_data["kontakt"] = {
+                            "id": kontakt.id,
+                            "email": kontakt.EMail,
+                            "telefonnummer": kontakt.Telefonnummer,
+                            "rolle": kontakt.Rolle,
+                            "referenz": kontakt.Referenz,
+                            "ref_typ": kontakt.RefTyp
+                        }
+                    
+                    result.append(order_data)
                 return jsonify({"orders": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -29,7 +57,7 @@ def init_routes(db):
 
     @auftrag_bp.route('/<int:order_id>', methods=['GET'])
     def get_order(order_id):
-        """Get a single order by ID"""
+        """Get a single order by ID with resolved contact and importance data"""
         try:
             with db.session as session:
                 order = session.execute(
@@ -37,12 +65,40 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if order:
-                    return jsonify({
+                    order_data = {
                         "id": order.id,
                         "bezeichnung": order.Bezeichnung,
                         "wichtigkeit_id": order.wichtigkeit,
                         "kontakt_id": order.Kontakt
-                    }), 200
+                    }
+                    
+                    # Resolve Wichtigkeit foreign key
+                    wichtigkeit = session.execute(
+                        select(tables.Wichtigkeit).where(tables.Wichtigkeit.id == order.wichtigkeit)
+                    ).scalar_one_or_none()
+                    
+                    if wichtigkeit:
+                        order_data["wichtigkeit"] = {
+                            "id": wichtigkeit.id,
+                            "level": wichtigkeit.level
+                        }
+                    
+                    # Resolve Kontakt foreign key
+                    kontakt = session.execute(
+                        select(tables.Kontakt).where(tables.Kontakt.id == order.Kontakt)
+                    ).scalar_one_or_none()
+                    
+                    if kontakt:
+                        order_data["kontakt"] = {
+                            "id": kontakt.id,
+                            "email": kontakt.EMail,
+                            "telefonnummer": kontakt.Telefonnummer,
+                            "rolle": kontakt.Rolle,
+                            "referenz": kontakt.Referenz,
+                            "ref_typ": kontakt.RefTyp
+                        }
+                    
+                    return jsonify(order_data), 200
                 else:
                     return jsonify({"error": "Order not found"}), 404
         except Exception as e:

@@ -11,19 +11,35 @@ def init_routes(db):
     
     @person_bp.route('', methods=['GET'])
     def get_persons():
-        """Get all persons"""
+        """Get all persons with resolved address data"""
         try:
             with db.session as session:
                 persons = session.execute(select(tables.Person)).scalars().all()
                 result = []
                 for person in persons:
-                    result.append({
+                    # Resolve Adresse foreign key
+                    adresse = session.execute(
+                        select(tables.Adresse).where(tables.Adresse.id == person.Adresse)
+                    ).scalar_one_or_none()
+                    
+                    person_data = {
                         "id": person.id,
                         "name": person.Name,
                         "adresse_id": person.Adresse,
                         "geburtsdatum": person.Geburtsdatum.isoformat() if person.Geburtsdatum else None,
                         "titel": person.Titel
-                    })
+                    }
+                    
+                    if adresse:
+                        person_data["adresse"] = {
+                            "id": adresse.id,
+                            "plz": adresse.Plz,
+                            "ortsname": adresse.ortsname,
+                            "strasse": adresse.Strasse,
+                            "hausnr": adresse.Hausnr
+                        }
+                    
+                    result.append(person_data)
                 return jsonify({"persons": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -31,7 +47,7 @@ def init_routes(db):
 
     @person_bp.route('/<int:person_id>', methods=['GET'])
     def get_person(person_id):
-        """Get a single person by ID"""
+        """Get a single person by ID with resolved address data"""
         try:
             with db.session as session:
                 person = session.execute(
@@ -39,13 +55,29 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if person:
-                    return jsonify({
+                    # Resolve Adresse foreign key
+                    adresse = session.execute(
+                        select(tables.Adresse).where(tables.Adresse.id == person.Adresse)
+                    ).scalar_one_or_none()
+                    
+                    person_data = {
                         "id": person.id,
                         "name": person.Name,
                         "adresse_id": person.Adresse,
                         "geburtsdatum": person.Geburtsdatum.isoformat() if person.Geburtsdatum else None,
                         "titel": person.Titel
-                    }), 200
+                    }
+                    
+                    if adresse:
+                        person_data["adresse"] = {
+                            "id": adresse.id,
+                            "plz": adresse.Plz,
+                            "ortsname": adresse.ortsname,
+                            "strasse": adresse.Strasse,
+                            "hausnr": adresse.Hausnr
+                        }
+                    
+                    return jsonify(person_data), 200
                 else:
                     return jsonify({"error": "Person not found"}), 404
         except Exception as e:

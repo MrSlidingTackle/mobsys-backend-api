@@ -11,20 +11,47 @@ def init_routes(db):
     
     @protokoll_bp.route('', methods=['GET'])
     def get_protocols():
-        """Get all protocols"""
+        """Get all protocols with resolved appointment data"""
         try:
             with db.session as session:
                 protocols = session.execute(select(tables.Protokoll)).scalars().all()
                 result = []
                 for protocol in protocols:
-                    result.append({
+                    # Resolve Termine foreign key
+                    termin = session.execute(
+                        select(tables.Termine).where(tables.Termine.id == protocol.Termin)
+                    ).scalar_one_or_none()
+                    
+                    protocol_data = {
                         "id": protocol.id,
                         "datum": protocol.Datum.isoformat() if protocol.Datum else None,
                         "text": protocol.Text,
                         "dauer": protocol.Dauer,
                         "tldr": protocol.TLDR,
                         "termin_id": protocol.Termin
-                    })
+                    }
+                    
+                    if termin:
+                        # Also resolve Terminart for the termin
+                        art = session.execute(
+                            select(tables.Terminart).where(tables.Terminart.id == termin.Art)
+                        ).scalar_one_or_none()
+                        
+                        protocol_data["termin"] = {
+                            "id": termin.id,
+                            "ort": termin.Ort,
+                            "art_id": termin.Art,
+                            "start": termin.Start.isoformat() if termin.Start else None,
+                            "ende": termin.Ende.isoformat() if termin.Ende else None
+                        }
+                        
+                        if art:
+                            protocol_data["termin"]["art"] = {
+                                "id": art.id,
+                                "name": art.Name
+                            }
+                    
+                    result.append(protocol_data)
                 return jsonify({"protocols": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -32,7 +59,7 @@ def init_routes(db):
 
     @protokoll_bp.route('/<int:protocol_id>', methods=['GET'])
     def get_protocol(protocol_id):
-        """Get a single protocol by ID"""
+        """Get a single protocol by ID with resolved appointment data"""
         try:
             with db.session as session:
                 protocol = session.execute(
@@ -40,14 +67,41 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if protocol:
-                    return jsonify({
+                    # Resolve Termine foreign key
+                    termin = session.execute(
+                        select(tables.Termine).where(tables.Termine.id == protocol.Termin)
+                    ).scalar_one_or_none()
+                    
+                    protocol_data = {
                         "id": protocol.id,
                         "datum": protocol.Datum.isoformat() if protocol.Datum else None,
                         "text": protocol.Text,
                         "dauer": protocol.Dauer,
                         "tldr": protocol.TLDR,
                         "termin_id": protocol.Termin
-                    }), 200
+                    }
+                    
+                    if termin:
+                        # Also resolve Terminart for the termin
+                        art = session.execute(
+                            select(tables.Terminart).where(tables.Terminart.id == termin.Art)
+                        ).scalar_one_or_none()
+                        
+                        protocol_data["termin"] = {
+                            "id": termin.id,
+                            "ort": termin.Ort,
+                            "art_id": termin.Art,
+                            "start": termin.Start.isoformat() if termin.Start else None,
+                            "ende": termin.Ende.isoformat() if termin.Ende else None
+                        }
+                        
+                        if art:
+                            protocol_data["termin"]["art"] = {
+                                "id": art.id,
+                                "name": art.Name
+                            }
+                    
+                    return jsonify(protocol_data), 200
                 else:
                     return jsonify({"error": "Protocol not found"}), 404
         except Exception as e:

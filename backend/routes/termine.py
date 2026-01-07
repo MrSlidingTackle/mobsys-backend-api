@@ -11,19 +11,32 @@ def init_routes(db):
     
     @termine_bp.route('', methods=['GET'])
     def get_appointments():
-        """Get all appointments"""
+        """Get all appointments with resolved appointment type data"""
         try:
             with db.session as session:
                 appointments = session.execute(select(tables.Termine)).scalars().all()
                 result = []
                 for appointment in appointments:
-                    result.append({
+                    # Resolve Terminart foreign key
+                    art = session.execute(
+                        select(tables.Terminart).where(tables.Terminart.id == appointment.Art)
+                    ).scalar_one_or_none()
+                    
+                    appointment_data = {
                         "id": appointment.id,
                         "ort": appointment.Ort,
                         "art_id": appointment.Art,
                         "start": appointment.Start.isoformat() if appointment.Start else None,
                         "ende": appointment.Ende.isoformat() if appointment.Ende else None
-                    })
+                    }
+                    
+                    if art:
+                        appointment_data["art"] = {
+                            "id": art.id,
+                            "name": art.Name
+                        }
+                    
+                    result.append(appointment_data)
                 return jsonify({"appointments": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -31,7 +44,7 @@ def init_routes(db):
 
     @termine_bp.route('/<int:appointment_id>', methods=['GET'])
     def get_appointment(appointment_id):
-        """Get a single appointment by ID"""
+        """Get a single appointment by ID with resolved appointment type data"""
         try:
             with db.session as session:
                 appointment = session.execute(
@@ -39,13 +52,26 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if appointment:
-                    return jsonify({
+                    # Resolve Terminart foreign key
+                    art = session.execute(
+                        select(tables.Terminart).where(tables.Terminart.id == appointment.Art)
+                    ).scalar_one_or_none()
+                    
+                    appointment_data = {
                         "id": appointment.id,
                         "ort": appointment.Ort,
                         "art_id": appointment.Art,
                         "start": appointment.Start.isoformat() if appointment.Start else None,
                         "ende": appointment.Ende.isoformat() if appointment.Ende else None
-                    }), 200
+                    }
+                    
+                    if art:
+                        appointment_data["art"] = {
+                            "id": art.id,
+                            "name": art.Name
+                        }
+                    
+                    return jsonify(appointment_data), 200
                 else:
                     return jsonify({"error": "Appointment not found"}), 404
         except Exception as e:

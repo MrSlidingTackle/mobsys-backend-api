@@ -10,17 +10,44 @@ def init_routes(db):
     
     @auftragsposition_bp.route('', methods=['GET'])
     def get_order_items():
-        """Get all order items"""
+        """Get all order items with resolved order and product data"""
         try:
             with db.session as session:
                 items = session.execute(select(tables.Auftragsposition)).scalars().all()
                 result = []
                 for item in items:
-                    result.append({
+                    item_data = {
                         "id": item.id,
                         "auftrag_id": item.Auftrag,
                         "produkt_id": item.Produkt
-                    })
+                    }
+                    
+                    # Resolve Auftrag foreign key
+                    auftrag = session.execute(
+                        select(tables.Auftrag).where(tables.Auftrag.id == item.Auftrag)
+                    ).scalar_one_or_none()
+                    
+                    if auftrag:
+                        item_data["auftrag"] = {
+                            "id": auftrag.id,
+                            "bezeichnung": auftrag.Bezeichnung,
+                            "wichtigkeit_id": auftrag.wichtigkeit,
+                            "kontakt_id": auftrag.Kontakt
+                        }
+                    
+                    # Resolve Produkt foreign key
+                    produkt = session.execute(
+                        select(tables.Produkt).where(tables.Produkt.id == item.Produkt)
+                    ).scalar_one_or_none()
+                    
+                    if produkt:
+                        item_data["produkt"] = {
+                            "id": produkt.id,
+                            "name": produkt.Bezeichnung,
+                            "price": float(produkt.Preis) if produkt.Preis else None
+                        }
+                    
+                    result.append(item_data)
                 return jsonify({"order_items": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -28,7 +55,7 @@ def init_routes(db):
 
     @auftragsposition_bp.route('/<int:item_id>', methods=['GET'])
     def get_order_item(item_id):
-        """Get a single order item by ID"""
+        """Get a single order item by ID with resolved order and product data"""
         try:
             with db.session as session:
                 item = session.execute(
@@ -36,11 +63,38 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if item:
-                    return jsonify({
+                    item_data = {
                         "id": item.id,
                         "auftrag_id": item.Auftrag,
                         "produkt_id": item.Produkt
-                    }), 200
+                    }
+                    
+                    # Resolve Auftrag foreign key
+                    auftrag = session.execute(
+                        select(tables.Auftrag).where(tables.Auftrag.id == item.Auftrag)
+                    ).scalar_one_or_none()
+                    
+                    if auftrag:
+                        item_data["auftrag"] = {
+                            "id": auftrag.id,
+                            "bezeichnung": auftrag.Bezeichnung,
+                            "wichtigkeit_id": auftrag.wichtigkeit,
+                            "kontakt_id": auftrag.Kontakt
+                        }
+                    
+                    # Resolve Produkt foreign key
+                    produkt = session.execute(
+                        select(tables.Produkt).where(tables.Produkt.id == item.Produkt)
+                    ).scalar_one_or_none()
+                    
+                    if produkt:
+                        item_data["produkt"] = {
+                            "id": produkt.id,
+                            "name": produkt.Bezeichnung,
+                            "price": float(produkt.Preis) if produkt.Preis else None
+                        }
+                    
+                    return jsonify(item_data), 200
                 else:
                     return jsonify({"error": "Order item not found"}), 404
         except Exception as e:

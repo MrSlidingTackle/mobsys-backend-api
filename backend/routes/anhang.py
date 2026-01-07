@@ -10,17 +10,46 @@ def init_routes(db):
     
     @anhang_bp.route('', methods=['GET'])
     def get_attachments():
-        """Get all attachments"""
+        """Get all attachments with resolved protocol and medium data"""
         try:
             with db.session as session:
                 attachments = session.execute(select(tables.Anhang)).scalars().all()
                 result = []
                 for attachment in attachments:
-                    result.append({
+                    attachment_data = {
                         "id": attachment.id,
                         "protokoll_id": attachment.Protokoll,
                         "medium_id": attachment.Medium
-                    })
+                    }
+                    
+                    # Resolve Protokoll foreign key
+                    protokoll = session.execute(
+                        select(tables.Protokoll).where(tables.Protokoll.id == attachment.Protokoll)
+                    ).scalar_one_or_none()
+                    
+                    if protokoll:
+                        attachment_data["protokoll"] = {
+                            "id": protokoll.id,
+                            "datum": protokoll.Datum.isoformat() if protokoll.Datum else None,
+                            "text": protokoll.Text,
+                            "dauer": protokoll.Dauer,
+                            "tldr": protokoll.TLDR,
+                            "termin_id": protokoll.Termin
+                        }
+                    
+                    # Resolve Medium foreign key
+                    medium = session.execute(
+                        select(tables.Medium).where(tables.Medium.id == attachment.Medium)
+                    ).scalar_one_or_none()
+                    
+                    if medium:
+                        attachment_data["medium"] = {
+                            "id": medium.id,
+                            "dateityp": medium.Dateityp,
+                            "dateiname": medium.Dateiname
+                        }
+                    
+                    result.append(attachment_data)
                 return jsonify({"attachments": result, "count": len(result)}), 200
         except Exception as e:
             return jsonify({"error": str(e)}), 500
@@ -28,7 +57,7 @@ def init_routes(db):
 
     @anhang_bp.route('/<int:attachment_id>', methods=['GET'])
     def get_attachment(attachment_id):
-        """Get a single attachment by ID"""
+        """Get a single attachment by ID with resolved protocol and medium data"""
         try:
             with db.session as session:
                 attachment = session.execute(
@@ -36,11 +65,40 @@ def init_routes(db):
                 ).scalar_one_or_none()
                 
                 if attachment:
-                    return jsonify({
+                    attachment_data = {
                         "id": attachment.id,
                         "protokoll_id": attachment.Protokoll,
                         "medium_id": attachment.Medium
-                    }), 200
+                    }
+                    
+                    # Resolve Protokoll foreign key
+                    protokoll = session.execute(
+                        select(tables.Protokoll).where(tables.Protokoll.id == attachment.Protokoll)
+                    ).scalar_one_or_none()
+                    
+                    if protokoll:
+                        attachment_data["protokoll"] = {
+                            "id": protokoll.id,
+                            "datum": protokoll.Datum.isoformat() if protokoll.Datum else None,
+                            "text": protokoll.Text,
+                            "dauer": protokoll.Dauer,
+                            "tldr": protokoll.TLDR,
+                            "termin_id": protokoll.Termin
+                        }
+                    
+                    # Resolve Medium foreign key
+                    medium = session.execute(
+                        select(tables.Medium).where(tables.Medium.id == attachment.Medium)
+                    ).scalar_one_or_none()
+                    
+                    if medium:
+                        attachment_data["medium"] = {
+                            "id": medium.id,
+                            "dateityp": medium.Dateityp,
+                            "dateiname": medium.Dateiname
+                        }
+                    
+                    return jsonify(attachment_data), 200
                 else:
                     return jsonify({"error": "Attachment not found"}), 404
         except Exception as e:
