@@ -6,7 +6,17 @@ Usage:
     3. Import and use the functions in your application
 '''
 
-class AivenEnvironment():
+import os
+import sys
+try:
+    import sqlalchemy
+    SQLALCHEMY_AVAILABLE = True
+    from dotenv import load_dotenv
+except ImportError:
+    print("Error: python-dotenv or sqlalchemy is not installed. Please install them with '(uv) pip install python-dotenv sqlalchemy'.")
+    sys.exit(1)
+
+class AivenEnvironment:
 
     def __init__(self):
         self.env_variables = self.load_environment_variables()
@@ -15,17 +25,7 @@ class AivenEnvironment():
             raise EnvironmentError("Required environment variables are missing. Please check your .env file.")
 
     def load_environment_variables(self) -> dict:
-        print("Loading environment variables...")
-
-        import os
-        import sys
-
-
-        try:
-            from dotenv import load_dotenv
-        except ImportError:
-            print("Error: python-dotenv is not installed. Please install it with 'pip install python-dotenv'.")
-            sys.exit(1)
+        print("Loading aiven environment variables...")
 
         # Load environment variables from .env file
         load_dotenv()
@@ -39,6 +39,7 @@ class AivenEnvironment():
         env_variables['AIVEN_PORT'] = os.getenv('AIVEN_PORT')
         env_variables['AIVEN_USER'] = os.getenv('AIVEN_USER')
         env_variables['AIVEN_PASSWORD'] = os.getenv('AIVEN_PASSWORD')
+        env_variables['AIVEN_CERT_PATH'] = os.getenv('AIVEN_CERT_PATH')
 
         return env_variables
 
@@ -58,7 +59,8 @@ class AivenEnvironment():
             'AIVEN_HOST': self.env_variables.get('AIVEN_HOST'),
             'AIVEN_PORT': self.env_variables.get('AIVEN_PORT'),
             'AIVEN_USER': self.env_variables.get('AIVEN_USER'),
-            'AIVEN_PASSWORD': self.env_variables.get('AIVEN_PASSWORD')
+            'AIVEN_PASSWORD': self.env_variables.get('AIVEN_PASSWORD'),
+            'AIVEN_CERT_PATH': os.getenv('AIVEN_CERT_PATH')
         }
 
         missing_vars = [var_name for var_name, var_value in required_vars.items() if not var_value]
@@ -86,9 +88,9 @@ class AivenEnvironment():
         """Get the Aiven host."""
         return self.env_variables.get('AIVEN_HOST')
 
-    def get_port(self) -> str:
+    def get_port(self) -> int:
         """Get the Aiven port."""
-        return self.env_variables.get('AIVEN_PORT')
+        return int(self.env_variables.get('AIVEN_PORT'))
 
     def get_user(self) -> str:
         """Get the Aiven user."""
@@ -97,3 +99,40 @@ class AivenEnvironment():
     def get_password(self) -> str:
         """Get the Aiven password."""
         return self.env_variables.get('AIVEN_PASSWORD')
+    
+    def get_cert_path(self) -> str:
+        """Get the Aiven certificate path."""
+        return self.env_variables.get('AIVEN_CERT_PATH')
+    
+
+class AivenDatabase:
+    def __init__(self, env: AivenEnvironment):
+        self.env = env
+        self.engine = None
+        self.session = None
+
+    def connect(self):
+        """
+        Connect to Aiven database using the loaded environment variables.
+
+        Returns:
+            connection: sqlalchemy engine object
+        """
+        if not SQLALCHEMY_AVAILABLE:
+            print("Error: sqlalchemy is not installed. Please install it with '(uv) pip install sqlalchemy'.")
+            return None
+
+        try:
+            timeout = 10
+            self.engine = sqlalchemy.create_engine(
+                self.env.get_service_uri(),
+                connect_args={
+                    "connect_timeout": timeout,
+                    'ssl_ca': self.env.get_cert_path()
+                }
+            )
+            print("Successfully connected to the Aiven database using environment variables.")
+            self.session = sqlalchemy.orm.Session(self.engine)
+        except Exception as e:
+            print(f"Error connecting to the database using environment variables: {e}")
+            return None
