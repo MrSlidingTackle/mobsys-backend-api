@@ -190,11 +190,7 @@ def init_routes(db):
                     UnternehmenId=data['unternehmen_id'] if 'unternehmen_id' in data else None,
                     RefTyp=data['ref_typ']
                 )
-                print(type(data['email']))
-                print(type(data['telefonnummer']))
-                print(type(data['rolle']))
-                print(type(data['referenz']))
-                print(type(data['ref_typ']))
+
                 session.add(new_contact)
                 session.commit()
                 session.refresh(new_contact)
