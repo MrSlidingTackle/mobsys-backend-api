@@ -132,6 +132,7 @@ def init_routes(db):
                     "kontakt_id": new_order.Kontakt
                 }), 201
         except Exception as e:
+            print(e)
             return jsonify({"error": str(e)}), 500
 
 

@@ -187,6 +187,11 @@ def init_routes(db):
                     Referenz=data['referenz'],
                     RefTyp=data['ref_typ']
                 )
+                print(type(data['email']))
+                print(type(data['telefonnummer']))
+                print(type(data['rolle']))
+                print(type(data['referenz']))
+                print(type(data['ref_typ']))
                 session.add(new_contact)
                 session.commit()
                 session.refresh(new_contact)
@@ -200,6 +205,7 @@ def init_routes(db):
                     "ref_typ": new_contact.RefTyp
                 }), 201
         except Exception as e:
+            print(e)
             return jsonify({"error": str(e)}), 500
 
 

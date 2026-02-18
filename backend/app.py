@@ -1,4 +1,5 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 import backend.classes.aiven as aiven
 from sqlalchemy import select
 from backend.routes.products import init_routes as init_products
@@ -17,6 +18,7 @@ from backend.routes.auftrag import init_routes as init_auftrag
 from backend.routes.auftragsposition import init_routes as init_auftragsposition
 
 app = Flask(__name__)
+CORS(app)
 
 # Initialize database connection
 aiven_env = aiven.AivenEnvironment()
@@ -80,4 +82,4 @@ def health():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5001)
