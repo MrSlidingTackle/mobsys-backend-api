@@ -18,7 +18,7 @@ from backend.routes.auftrag import init_routes as init_auftrag
 from backend.routes.auftragsposition import init_routes as init_auftragsposition
 
 app = Flask(__name__)
-CORS(app)
+CORS(app)  # Enable CORS for all routes
 
 # Initialize database connection
 aiven_env = aiven.AivenEnvironment()
