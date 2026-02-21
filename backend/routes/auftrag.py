@@ -115,6 +115,7 @@ def init_routes(db):
             
             # Validate required fields
             if not all(key in data for key in ['bezeichnung', 'wichtigkeit_id', 'kontakt_id']):
+                print(data)
                 return jsonify({"error": "Missing required fields"}), 400
             
             with db.session as session:
